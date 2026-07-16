@@ -1,4 +1,4 @@
-#
+# from: https://www.kaggle.com/code/hojjatk/read-mnist-dataset/notebook
 # This is a sample Notebook to demonstrate how to read "MNIST Dataset"
 #
 import numpy as np # linear algebra
