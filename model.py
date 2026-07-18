@@ -245,6 +245,19 @@ class Model():
         self.optimiser = None
         self.regularisation = False
 
+    def addLayer(self, inputNo, neuronNo, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
+        if layerType == "dense":
+            newLayer = Layer_Dense(inputNo, neuronNo, weightRegL1, weightRegL2, biasRegL1, biasRegL2)
+        elif layerType == "dropout":
+            newLayer = Layer_Dropout(rate)
+        else:
+            raise ValueError("Unimplemented type of layer requested")
+        
+        if self.layers[-1].neuronNo != inputNo:
+            raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
+        
+        self.layers.append(newLayer)
+
     def setRegul(self, weightRegL1, weightRegL2, biasRegL1, biasRegL2):
         self.regularisation = True
         self.weightRegL1 = weightRegL1
@@ -255,6 +268,8 @@ class Model():
     def setLossFunc(self, func="Categorical_Cross_Entropy"):
         if func == "Categorical_Cross_Entropy":
             self.lossFunc = Loss_CategoricalCrossEntropy()
+        else:
+            raise ValueError("Unimplemented Loss function requested")
         #if I implement more loss functions, they can be added here
 
     def setOptimiser(self, optimiser="Adam", learningRate=None, momentum=None, decay=None, epsilon=None, beta1=None, beta2=None):
@@ -299,7 +314,31 @@ class Model():
             if self.activations[i] != None:
                 #If this is a dropout layer, we skip the activation function in the pass and we also add its regularisation loss to the count
                 self.activations[i].forward(self.layers[i].output)
-                
+                self.reguLoss += self.lossFunc.regularisationLoss(self.layers[i])
 
         self.dataloss = self.lossFunc.calculate(self.activations[-1].output, trueBatch)
+        self.totalLoss = self.dataloss + self.reguLoss
+        predictions = np.argmax(self.activations[-1].output, axis=1) + 1
+        self.accuracy = np.mean(predictions == trueBatch)
+        return self.totalLoss, self.accuracy
+    
+    def backwardPass(self, trueBatch):
+        self.lossFunc.backward(self.activations[-1].output, trueBatch)
+        self.activations[-1].backward(self.lossFunc.dinputs)
+        self.layers[-1].backward(self.activations[-1].dinputs)
+        for i in range(len(self.layers)-2, -1, -1):
+            if self.activations[i] != None:
+                #if this is a dropout layer, we skip activation function
+                self.activations[i].backward(self.layers[i+1].dinputs)
 
+            if self.activations[i+1] != None:
+                # if the next layer is dropout, we will use the layer instead of activation
+                self.layers[i].backward(self.activations[i+1].dinputs)
+            else:
+                self.layers[i].backward(self.layers[i+1].dinputs)
+
+        self.optimiser.pre_update()
+        for layer in self.layers:
+            self.optimiser.update_parameters(layer)
+        self.optimiser.post_update() 
+            
