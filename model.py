@@ -258,6 +258,18 @@ class Model():
         
         self.layers.append(newLayer)
 
+        if layerType != "dropout": #if its a dropout layer, there is no activation function
+            if activation == "ReLU":
+                newActivation = Activation_ReLU()
+            elif activation == "Softmax":
+                newActivation = Activation_Softmax()
+            elif activation == "Sigmoid":
+                newActivation = Activation_Sigmoid()
+            else:
+                raise ValueError("Unimplemented Activation function requested")
+            
+            self.activations.append(newActivation)
+
     def setRegul(self, weightRegL1, weightRegL2, biasRegL1, biasRegL2):
         self.regularisation = True
         self.weightRegL1 = weightRegL1
