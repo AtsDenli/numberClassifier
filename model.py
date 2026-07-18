@@ -243,7 +243,6 @@ class Model():
         self.activations = []
         self.lossFunc = None
         self.optimiser = None
-        self.regularisation = False
 
     def addLayer(self, inputNo, neuronNo, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
         if layerType == "dense":
@@ -269,13 +268,6 @@ class Model():
                 raise ValueError("Unimplemented Activation function requested")
             
             self.activations.append(newActivation)
-
-    def setRegul(self, weightRegL1, weightRegL2, biasRegL1, biasRegL2):
-        self.regularisation = True
-        self.weightRegL1 = weightRegL1
-        self.weightRegL2 = weightRegL2
-        self.biasRegL1 = biasRegL1
-        self.biasRegL2 = biasRegL2
 
     def setLossFunc(self, func="Categorical_Cross_Entropy"):
         if func == "Categorical_Cross_Entropy":
