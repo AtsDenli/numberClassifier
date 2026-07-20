@@ -7,6 +7,8 @@ import sys
 
 class Layer_Dense:
     def __init__(self, inputNo, neuronNo, weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0):
+        self.inputNo = inputNo
+        self.neuronNo = neuronNo
         self.weights = 0.01 * np.random.randn(inputNo, neuronNo)
         #the reason that there is an extra bracket here to specify the shape but not in the rpevious line is that zeros() takes other values in as a parameters. If you did it the other way, 1 would be the shape and neuronNo would be the dataType
         self.biases = np.zeros((1, neuronNo))
@@ -186,12 +188,14 @@ class Optimiser_SGD():
 
             biasUpdates = self.momentum * layer.bias_momentums - self.currentLearningRate * layer.dbiases
             layer.bias_momentums = biasUpdates
+
+            layer.weights += weightUpdates
+            layer.biases += biasUpdates
         else:
             layer.weights += -layer.dweights * self.learningRate
             layer.biases += -layer.dbiases * self.learningRate
 
-        layer.weights += weightUpdates
-        layer.biases += biasUpdates
+      
 
     def post_update(self):
         self.iterations += 1
@@ -252,8 +256,9 @@ class Model():
         else:
             raise ValueError("Unimplemented type of layer requested")
         
-        if self.layers[-1].neuronNo != inputNo:
-            raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
+        if len(self.layers) > 0:
+            if self.layers[-1].neuronNo != inputNo:
+                raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
         
         self.layers.append(newLayer)
 
@@ -268,6 +273,8 @@ class Model():
                 raise ValueError("Unimplemented Activation function requested")
             
             self.activations.append(newActivation)
+        else:
+            self.activations.append(None)
 
     def setLossFunc(self, func="Categorical_Cross_Entropy"):
         if func == "Categorical_Cross_Entropy":
@@ -322,7 +329,7 @@ class Model():
 
         self.dataloss = self.lossFunc.calculate(self.activations[-1].output, trueBatch)
         self.totalLoss = self.dataloss + self.reguLoss
-        predictions = np.argmax(self.activations[-1].output, axis=1) + 1
+        predictions = np.argmax(self.activations[-1].output, axis=1)
         self.accuracy = np.mean(predictions == trueBatch)
         return self.totalLoss, self.accuracy
     
@@ -337,7 +344,7 @@ class Model():
 
             if self.activations[i+1] != None:
                 # if the next layer is dropout, we will use the layer instead of activation
-                self.layers[i].backward(self.activations[i+1].dinputs)
+                self.layers[i].backward(self.activations[i].dinputs)
             else:
                 self.layers[i].backward(self.layers[i+1].dinputs)
 
