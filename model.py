@@ -248,7 +248,7 @@ class Model():
         self.lossFunc = None
         self.optimiser = None
 
-    def addLayer(self, inputNo, neuronNo, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
+    def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
         if layerType == "dense":
             newLayer = Layer_Dense(inputNo, neuronNo, weightRegL1, weightRegL2, biasRegL1, biasRegL2)
         elif layerType == "dropout":
@@ -260,7 +260,10 @@ class Model():
             if self.layers[-1].neuronNo != inputNo:
                 raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
         
-        self.layers.append(newLayer)
+        if loc == -1:
+            self.layers.append(newLayer)
+        else:
+            self.layers.insert(loc, newLayer)
 
         if layerType != "dropout": #if its a dropout layer, there is no activation function
             if activation == "ReLU":
@@ -352,4 +355,46 @@ class Model():
         for layer in self.layers:
             self.optimiser.update_parameters(layer)
         self.optimiser.post_update() 
-            
+
+    def cycle(self, x, y): #essentially one epoch of training/validation/testing
+        #assuming layers exist, loss func is set and optimiser is set
+        if self.layers == [] or self.activations == [] or self.lossFunc == None or self.optimiser == None:
+            raise ValueError("Conditions not met to be able to run training.\nCheck if layers, activations, loss func and optimiser is added")
+        
+        #shuffe since this function will be running multiple times in a loop
+        indices = np.arange(len(x))
+        np.random.shuffle(indices)
+        x = x[indices]
+        y = y[indices]
+        #im arbitrarily setting batch size to 2000
+        np.split(x, 2000)
+        np.split(y, 2000)
+        losses = []
+        accs = []
+        for i in range(len(x)):
+            lossTmp, accTmp = self.forwardPass(x[i], y[i])
+            losses.append(lossTmp)
+            accs.append(accTmp)
+            self.backwardPass(y[i])
+        loss = sum(losses) / len(losses)
+        acc = sum(accs) / len(accs)
+        return loss, acc
+
+    def sizeOptimiser(self, inputNo, outputNo, x, y, xVal, yVal, hiddenActivation="ReLU", outputActivation="Softmax"):
+        #first create the initial input, output and singular hidden layer
+        #reinitialise the layers and activations in case they were already populated
+        self.layers = []
+        self.activation = []
+        self.addLayer(inputNo, 64, activation=hiddenActivation)
+        self.addLayer(64, outputNo, activation=outputActivation)
+
+        previousValLoss = 5
+        while True:
+            for epoch in range(100):
+                loss, acc = self.cycle(x,y)
+                print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
+
+            valLoss, valAcc = self.cycle(xVal, yVal)
+            deltaLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
+            if deltaLoss < 1:
+                self.add
