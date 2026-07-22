@@ -28,18 +28,3 @@ def dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw):
 (xTrain, yTrain), (xTest, yTest) = dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw)
 
 classifier = model.Model()
-classifier.addLayer(inputNo=784,neuronNo=64,layerType="dense", activation="ReLU")
-classifier.addLayer(inputNo=64, neuronNo=10, layerType="dense", activation="Softmax")
-classifier.setLossFunc()
-classifier.setOptimiser()
-batchSize = 100
-maxEpoch = 600
-
-for epoch in range(maxEpoch):
-    xBatch = xTrain[epoch * batchSize: (epoch+1) * batchSize]
-    yBatch = yTrain[epoch * batchSize: (epoch+1) * batchSize]
-    yBatch = yBatch.astype(int)
-    loss, accuracy = classifier.forwardPass(xBatch, yBatch)
-    if epoch % 50 == 0:
-        print(f"Epoch: {epoch}, loss: {loss}, acc:, {accuracy}")
-    classifier.backwardPass(yBatch)
