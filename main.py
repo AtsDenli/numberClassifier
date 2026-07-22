@@ -35,5 +35,3 @@ xVal = xTrain[50000:]
 yVal = yTrain[50000:]
 xTrain = xTrain[:50000]
 yTrain = yTrain[:50000]
-
-classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
