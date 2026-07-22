@@ -367,8 +367,8 @@ class Model():
         x = x[indices]
         y = y[indices]
         #im arbitrarily setting batch size to 2000
-        np.split(x, 2000)
-        np.split(y, 2000)
+        x = np.split(x, 1000)
+        y = np.split(y, 1000)
         losses = []
         accs = []
         for i in range(len(x)):
@@ -384,7 +384,7 @@ class Model():
         #first create the initial input, output and singular hidden layer
         #reinitialise the layers and activations in case they were already populated
         self.layers = []
-        self.activation = []
+        self.activations = []
         self.addLayer(inputNo, 64, activation=hiddenActivation)
         self.addLayer(64, outputNo, activation=outputActivation)
         depthExhausted = False
@@ -394,12 +394,14 @@ class Model():
         previousValLoss = 5
         previousLoss = 5
         while True:
-            for epoch in range(1000):
+            for epoch in range(50):
                 loss, acc = self.cycle(x,y)
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
             deltaLoss = ((previousLoss - loss) / previousLoss) * 100
             valLoss, valAcc = self.cycle(xVal, yVal)
+            print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
+
             deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
 
             if lastAction == "addLayer" and deltaLoss < 0.01:
@@ -417,6 +419,7 @@ class Model():
                 if not depthExhausted:
                 #adding new layer could help
                     self.layers.pop() # remove the last layer first to avoid neuron number mismatch
+                    self.activations.pop()
                     self.addLayer(self.layers[-1].neuronNo, 64, activation=hiddenActivation)
                     self.addLayer(self.layers[-1].neuronNo, outputNo, activation=outputActivation)
                     lastAction = "addLayer"
@@ -425,12 +428,20 @@ class Model():
                 #adding size could help - we only ever modify the penultimate layer
                 widthExhausted = False
                 self.layers.pop()
+                self.activations.pop()
                 prevSize = self.layers[-1].neuronNo
                 self.layers.pop() #remove the last 2, since we arent trying to add a layer, just increase an existing ones size
+                self.activations.pop()
                 newInputSize = self.layers[-1].neuronNo if self.layers else inputNo
                 self.addLayer(newInputSize, prevSize*2, activation=hiddenActivation)
                 self.addLayer(self.layers[-1].neuronNo, outputNo, activation=outputActivation)
                 lastAction = "widen"
                 
+            #print shape
+            print(inputNo, end=", ")
+            for layer in self.layers:
+                print(layer.neuronNo, end=", ")
+            print()
+
             previousLoss = loss
             previousValLoss = valLoss

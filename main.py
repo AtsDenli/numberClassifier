@@ -28,3 +28,12 @@ def dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw):
 (xTrain, yTrain), (xTest, yTest) = dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw)
 
 classifier = model.Model()
+classifier.setLossFunc()
+classifier.setOptimiser()
+
+xVal = xTrain[50000:]
+yVal = yTrain[50000:]
+xTrain = xTrain[:50000]
+yTrain = yTrain[:50000]
+
+classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
