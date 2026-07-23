@@ -1,5 +1,4 @@
 import cupy as np
-import sys
 
 #Code is almost identical (there are some small differences since I didn't copy it outright) to the book
 #Neural Networks from Scratch in Python by nnfs 
@@ -48,13 +47,14 @@ class Layer_Dense:
 
         
 class Layer_Dropout():
-    def __init__(self, rate):
+    def __init__(self, rate, inputNo):
         #the input is the rate of dropout, but we deal with the rate of success, so we invert it
         self.rate = 1 - rate
+        self.neuronNo = inputNo
+        self.inputNo = inputNo
     
     def forward(self, inputs):
         self.inputs = inputs
-        self.neuronNo = inputs.shape[1]
         #the mask of the things we will keep. whats randomly assigned as a 0 here will deactivate the related neuron
         self.binaryMask = np.random.binomial(1, self.rate, size=inputs.shape) / self.rate
         self.output = inputs * self.binaryMask
@@ -248,12 +248,13 @@ class Model():
         self.activations = []
         self.lossFunc = None
         self.optimiser = None
+        self.sizeOptimised = False
 
     def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
         if layerType == "dense":
             newLayer = Layer_Dense(inputNo, neuronNo, weightRegL1, weightRegL2, biasRegL1, biasRegL2)
         elif layerType == "dropout":
-            newLayer = Layer_Dropout(rate)
+            newLayer = Layer_Dropout(rate,inputNo)
         else:
             raise ValueError("Unimplemented type of layer requested")
         
@@ -274,7 +275,7 @@ class Model():
             elif activation == "Sigmoid":
                 newActivation = Activation_Sigmoid()
             else:
-                raise ValueError("Unimplemented Activation function requested")
+                raise ValueError("Unimplemented Activation function needed")
             
             self.activations.append(newActivation)
         else:
@@ -345,16 +346,14 @@ class Model():
             if self.activations[i] != None:
                 #if this is a dropout layer, we skip activation function
                 self.activations[i].backward(self.layers[i+1].dinputs)
-
-            if self.activations[i+1] != None:
-                # if the next layer is dropout, we will use the layer instead of activation
                 self.layers[i].backward(self.activations[i].dinputs)
             else:
                 self.layers[i].backward(self.layers[i+1].dinputs)
 
         self.optimiser.pre_update()
         for layer in self.layers:
-            self.optimiser.update_parameters(layer)
+            if hasattr(layer, "weights"): #if its a dropout layer, it shouldnt be optimised
+                self.optimiser.update_parameters(layer)
         self.optimiser.post_update() 
 
     def cycle(self, x, y): #essentially one epoch of training/validation/testing
@@ -388,14 +387,14 @@ class Model():
         self.activations = []
         self.addLayer(inputNo, 64, activation=hiddenActivation)
         self.addLayer(64, outputNo, activation=outputActivation)
-        depthExhausted = False
-        widthExhausted = False
+        #depthExhausted = False
+        #widthExhausted = False
         lastAction = None
 
         previousValLoss = 5
         previousLoss = 5
         while True:
-            for epoch in range(50):
+            for epoch in range(30):
                 loss, acc = self.cycle(x,y)
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
@@ -405,12 +404,12 @@ class Model():
 
             deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
 
-            if lastAction == "addLayer" and deltaLoss < 0.01:
-                depthExhausted = True
-            if lastAction == "widen" and deltaLoss < 0.01:
-                widthExhausted = True
+            #if lastAction == "addLayer" and deltaLoss < 0.01:
+            #    depthExhausted = True
+            #if lastAction == "widen" and deltaLoss < 0.01:
+            #    widthExhausted = True
 
-            if (deltaValLoss < 0.01 and deltaLoss > 0.01) and lastAction == "addDropOut" and depthExhausted and widthExhausted:
+            if deltaValLoss < 0.01 and lastAction == "addDropOut":
                 #even a dropout layer doesnt help anymore, optimisation complete
                 print("Size optimsation complete")
                 break
@@ -421,22 +420,22 @@ class Model():
                 self.activations.pop()
                 prevSize = self.layers[-1].neuronNo
                 self.addLayer(prevSize, prevSize, layerType="dropout", rate=0.15)
-                self.addLayer(prevSize, outputNo, activation="output")
+                self.addLayer(prevSize, outputNo, activation="Softmax")
                 lastAction = "addDropOut"
 
             elif deltaLoss < 0.01:
-                widthExhausted = True
-                if not depthExhausted:
+                #widthExhausted = True
+                #if not depthExhausted:
                 #adding new layer could help
-                    self.layers.pop() # remove the last layer first to avoid neuron number mismatch
-                    self.activations.pop()
-                    self.addLayer(self.layers[-1].neuronNo, 64, activation=hiddenActivation)
-                    self.addLayer(self.layers[-1].neuronNo, outputNo, activation=outputActivation)
-                    lastAction = "addLayer"
+                self.layers.pop() # remove the last layer first to avoid neuron number mismatch
+                self.activations.pop()
+                self.addLayer(self.layers[-1].neuronNo, 64, activation=hiddenActivation)
+                self.addLayer(self.layers[-1].neuronNo, outputNo, activation=outputActivation)
+                lastAction = "addLayer"
 
             else:
                 #adding size could help - we only ever modify the penultimate layer
-                widthExhausted = False
+                #widthExhausted = False
                 self.layers.pop()
                 self.activations.pop()
                 prevSize = self.layers[-1].neuronNo
@@ -455,3 +454,8 @@ class Model():
 
             previousLoss = loss
             previousValLoss = valLoss
+        self.sizeOptimised = True
+
+    def hyperParamOptimiser(self): #to be ran AFTER size optimiser
+        if not self.sizeOptimised:
+            raise Exception("Please run the sizeOptimise function first")

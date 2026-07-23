@@ -8,4 +8,4 @@ inner functions of a neural network from it. The non mathematical components - m
 any help from this book. 
 
 This project is still in development, and more functionality will be added in the coming days
-Size optimiser adding dropout layers, adding regularisation, optimising hyperparameters
+optimising hyperparameters
