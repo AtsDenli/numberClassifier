@@ -1,4 +1,5 @@
 import cupy as np
+import pickle as pkl
 
 #Code is almost identical (there are some small differences since I didn't copy it outright) to the book
 #Neural Networks from Scratch in Python by nnfs 
@@ -459,3 +460,21 @@ class Model():
     def hyperParamOptimiser(self): #to be ran AFTER size optimiser
         if not self.sizeOptimised:
             raise Exception("Please run the sizeOptimise function first")
+        #TODO
+        
+    def genericParamOptimiser(self, parameter, x, y, xVal, yVal, optimiser="Adam"):
+        while True:
+            self.setOptimiser(optimiser, )
+            for epoch in range(30):
+                pass 
+            #TODO
+
+    def saveParameters(self):
+        parameters = []
+        for i in range(len(self.layers)):
+            if self.activations[i] != None: #if its not a dropout layer
+                parameters.append((self.layers[i].biases, self.layers[i].weights))
+                
+        with open("NNParameters.pkl", "wb") as file:
+            pkl.dump(parameters, file)
+    
