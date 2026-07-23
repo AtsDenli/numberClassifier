@@ -6,7 +6,7 @@ import sys
 #which is basically the foundation of all of my knowledge about neural networks
 
 class Layer_Dense:
-    def __init__(self, inputNo, neuronNo, weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0):
+    def __init__(self, inputNo, neuronNo, weightRegL1=0, weightRegL2=5e-4, biasRegL1=0, biasRegL2=5e-4):
         self.inputNo = inputNo
         self.neuronNo = neuronNo
         self.weights = 0.01 * np.random.randn(inputNo, neuronNo)
@@ -54,6 +54,7 @@ class Layer_Dropout():
     
     def forward(self, inputs):
         self.inputs = inputs
+        self.neuronNo = inputs.shape[1]
         #the mask of the things we will keep. whats randomly assigned as a 0 here will deactivate the related neuron
         self.binaryMask = np.random.binomial(1, self.rate, size=inputs.shape) / self.rate
         self.output = inputs * self.binaryMask
@@ -405,14 +406,23 @@ class Model():
             deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
 
             if lastAction == "addLayer" and deltaLoss < 0.01:
-                depthExhausted = True   # depth didn't help either -> now genuinely exhausted
+                depthExhausted = True
             if lastAction == "widen" and deltaLoss < 0.01:
                 widthExhausted = True
 
-            if (deltaValLoss < 0.01 and deltaLoss > 0.01) or widthExhausted and depthExhausted:
-                #adding more layers is useless, increasing size is useless - optimisation complete
-                print("Optimal Size reached")
+            if (deltaValLoss < 0.01 and deltaLoss > 0.01) and lastAction == "addDropOut" and depthExhausted and widthExhausted:
+                #even a dropout layer doesnt help anymore, optimisation complete
+                print("Size optimsation complete")
                 break
+
+            elif (deltaValLoss < 0.01 and deltaLoss > 0.01):
+                #instead of optimisation complete, this is overfitting - add a dropout layer
+                self.layers.pop()
+                self.activations.pop()
+                prevSize = self.layers[-1].neuronNo
+                self.addLayer(prevSize, prevSize, layerType="dropout", rate=0.15)
+                self.addLayer(prevSize, outputNo, activation="output")
+                lastAction = "addDropOut"
 
             elif deltaLoss < 0.01:
                 widthExhausted = True
