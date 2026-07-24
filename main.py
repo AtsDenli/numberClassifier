@@ -38,3 +38,8 @@ yTrain = yTrain[:50000]
 
 classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
 classifier.saveModel()
+
+loadNew = model.Model()
+loadNew.loadModel("NNParameters.pkl", "NNMetaData.pkl")
+loss, acc = loadNew.cycle(xTrain, yTrain)
+print(f"{loss}, {acc}")

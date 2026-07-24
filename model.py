@@ -1,7 +1,7 @@
 import cupy as np
 import pickle as pkl
 
-#Code is almost identical (there are some small differences since I didn't copy it outright) to the book
+#Code is close (there are some small differences since I had to make some additions) to the book
 #Neural Networks from Scratch in Python by nnfs 
 #which is basically the foundation of all of my knowledge about neural networks
 
@@ -263,24 +263,43 @@ class Model():
         self.sizeOptimised = False
         self.lossFuncType = ""
 
-    def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
-        if layerType == "dense":
-            newLayer = Layer_Dense(inputNo, neuronNo, weightRegL1, weightRegL2, biasRegL1, biasRegL2)
-        elif layerType == "dropout":
-            newLayer = Layer_Dropout(rate,inputNo)
-        else:
-            raise ValueError("Unimplemented type of layer requested")
-        
-        if len(self.layers) > 0:
-            if self.layers[-1].neuronNo != inputNo:
-                raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
-        
-        if loc == -1:
-            self.layers.append(newLayer)
-        else:
-            self.layers.insert(loc, newLayer)
+    def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0, weights=None, biases=None):
+        if weights is None: #creating a new layer
+            if layerType == "dense":
+                newLayer = Layer_Dense(inputNo, neuronNo, weightRegL1, weightRegL2, biasRegL1, biasRegL2)
+            elif layerType == "dropout":
+                newLayer = Layer_Dropout(rate,inputNo)
+            else:
+                raise ValueError("Unimplemented type of layer requested")
+            
+            if len(self.layers) > 0:
+                if self.layers[-1].neuronNo != inputNo:
+                    raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
+            
+            if loc == -1:
+                self.layers.append(newLayer)
+            else:
+                self.layers.insert(loc, newLayer)
 
-        if layerType != "dropout": #if its a dropout layer, there is no activation function
+            if layerType != "dropout": #if its a dropout layer, there is no activation function
+                if activation == "ReLU":
+                    newActivation = Activation_ReLU()
+                elif activation == "Softmax":
+                    newActivation = Activation_Softmax()
+                elif activation == "Sigmoid":
+                    newActivation = Activation_Sigmoid()
+                else:
+                    raise ValueError("Unimplemented Activation function needed")
+                
+                self.activations.append(newActivation)
+            else:
+                self.activations.append(None)
+
+        else: #adding a layer that is being loaded - only dense layers possible
+            newLayer = Layer_Dense(inputNo, neuronNo)
+            newLayer.weights = weights
+            newLayer.biases = biases
+            self.layers.append(newLayer)
             if activation == "ReLU":
                 newActivation = Activation_ReLU()
             elif activation == "Softmax":
@@ -289,10 +308,7 @@ class Model():
                 newActivation = Activation_Sigmoid()
             else:
                 raise ValueError("Unimplemented Activation function needed")
-            
             self.activations.append(newActivation)
-        else:
-            self.activations.append(None)
 
     def setLossFunc(self, func="Categorical_Cross_Entropy"):
         if func == "Categorical_Cross_Entropy":
@@ -408,7 +424,7 @@ class Model():
         previousValLoss = 5
         previousLoss = 5
         while True:
-            for epoch in range(30):
+            for epoch in range(25):
                 loss, acc = self.cycle(x,y)
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
@@ -513,3 +529,28 @@ class Model():
                 hyperParams["beta2"] = self.optimiser.beta2
             
             pkl.dump((layerList, hyperParams), file)
+
+    def loadModel(self, paramFile, metaFile):
+        with open(metaFile, "rb") as file: 
+            layerList, hyperParams = pkl.load(file)
+        with open(paramFile, "rb") as file:
+            parameters = pkl.load(file)
+
+        i = 0 #overall count
+        j = 0 #dense layer count
+        for (layerType, activationType) in layerList:
+            if i < len(layerList) - 1:
+                if activationType == None: #dropout layer
+                    self.addLayer(self.layers[i-1].neuronNo, self.layers[i-1].neuronNo, layerType="dropout")
+                else:
+                    weights = parameters[j][1]
+                    biases = parameters[j][0]
+                    self.addLayer(len(weights), len(biases), layerType=layerType, activation=activationType, weights=weights, biases=biases)
+                    j += 1
+                i += 1
+        self.setLossFunc(layerList[-1][1])
+        if "momentum" in hyperParams: #can be expanded if more are added
+            self.setOptimiser(optimiser="SGD", **hyperParams)
+        else:
+            self.setOptimiser(optimiser="Adam", **hyperParams)            
+        
