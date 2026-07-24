@@ -16,6 +16,7 @@ class Layer_Dense:
         self.weightRegL2 = weightRegL2
         self.biasRegL1 = biasRegL1
         self.biasRegL2 = biasRegL2 
+        self.type = "dense"
 
     def forward(self, inputs):
         self.inputs = inputs
@@ -53,6 +54,7 @@ class Layer_Dropout():
         self.rate = 1 - rate
         self.neuronNo = inputNo
         self.inputNo = inputNo
+        self.type = "dropout"
     
     def forward(self, inputs):
         self.inputs = inputs
@@ -65,6 +67,9 @@ class Layer_Dropout():
         self.dinputs = dvalues * self.binaryMask
 
 class Activation_ReLU():
+    def __init__(self):
+        self.type = "ReLU"
+
     def forward(self, inputs):
         self.inputs = inputs
         self.output = np.maximum(0, inputs)
@@ -75,6 +80,9 @@ class Activation_ReLU():
         #self.inputs and not dinputs here since we want to know how the inputs to the 
 
 class Activation_Softmax():
+    def __init__(self):
+        self.type = "Softmax"
+
     def forward(self, inputs):
         self.inputs = inputs
         exponentials = np.exp(inputs - np.max(inputs, axis = 1, keepdims=True))
@@ -91,6 +99,9 @@ class Activation_Softmax():
             self.dinputs[index] = np.dot(jacobianMatrix, single_dvalues)
 
 class Activation_Sigmoid():
+    def __init__(self):
+        self.type = "Sigmoid"
+
     def forward(self, inputs):
         self.input = inputs
         self.output = 1 / (1 + np.exp(-1 * inputs))
@@ -250,6 +261,7 @@ class Model():
         self.lossFunc = None
         self.optimiser = None
         self.sizeOptimised = False
+        self.lossFuncType = ""
 
     def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0):
         if layerType == "dense":
@@ -285,6 +297,7 @@ class Model():
     def setLossFunc(self, func="Categorical_Cross_Entropy"):
         if func == "Categorical_Cross_Entropy":
             self.lossFunc = Loss_CategoricalCrossEntropy()
+            self.lossFuncType = func
         else:
             raise ValueError("Unimplemented Loss function requested")
         #if I implement more loss functions, they can be added here
@@ -469,12 +482,34 @@ class Model():
                 pass 
             #TODO
 
-    def saveParameters(self):
+    def saveModel(self):
         parameters = []
         for i in range(len(self.layers)):
             if self.activations[i] != None: #if its not a dropout layer
                 parameters.append((self.layers[i].biases, self.layers[i].weights))
-                
+
         with open("NNParameters.pkl", "wb") as file:
             pkl.dump(parameters, file)
-    
+
+        with open("NNMetaData.pkl", "wb") as file:
+            layerList = []
+            for i in range(len(self.layers)):
+                if self.activations[i] != None:
+                    layerList.append((self.layers[i].type, self.activations[i].type))
+                else:
+                    layerList.append((self.layers[i].type, None))
+            layerList.append((None, self.lossFuncType))
+
+            hyperParams = {}
+            hyperParams["learningRate"] = self.optimiser.learningRate
+            hyperParams["decay"] = self.optimiser.decay
+            if hasattr(self.optimiser, "momentum"):
+                hyperParams["momentum"] = self.optimiser.momentum
+            if hasattr(self.optimiser, "epsilon"):
+                hyperParams["epsilon"] = self.optimiser.epsilon
+            if hasattr(self.optimiser, "beta1"):
+                hyperParams["beta1"] = self.optimiser.beta1
+            if hasattr(self.optimiser, "beta2"):
+                hyperParams["beta2"] = self.optimiser.beta2
+            
+            pkl.dump((layerList, hyperParams), file)

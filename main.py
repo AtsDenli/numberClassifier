@@ -37,4 +37,4 @@ xTrain = xTrain[:50000]
 yTrain = yTrain[:50000]
 
 classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
-classifier.saveParameters()
+classifier.saveModel()

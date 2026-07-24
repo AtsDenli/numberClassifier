@@ -1,3 +1,5 @@
 __pycache__
 tmp.py
 .gitignore
+NNParameters.pkl
+NNMetaData.pkl
