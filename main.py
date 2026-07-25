@@ -27,19 +27,30 @@ def dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw):
 (xTrainRaw, yTrainRaw), (xTestRaw, yTestRaw) = loadData()
 (xTrain, yTrain), (xTest, yTest) = dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw)
 
-classifier = model.Model()
-classifier.setLossFunc()
-classifier.setOptimiser()
+#classifier = model.Model()
+#classifier.setLossFunc()
+#classifier.setOptimiser()
 
 xVal = xTrain[50000:]
 yVal = yTrain[50000:]
 xTrain = xTrain[:50000]
 yTrain = yTrain[:50000]
 
-classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
-classifier.saveModel()
+#classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
+#classifier.saveModel()
 
 loadNew = model.Model()
 loadNew.loadModel("NNParameters.pkl", "NNMetaData.pkl")
 loss, acc = loadNew.cycle(xTrain, yTrain)
 print(f"{loss}, {acc}")
+print("Successful load")
+
+hyperParams = {
+    "learningRate": 0.001, 
+    "decay": 0.0,
+    "epsilon": 1e-7,
+    "beta1": 0.9,
+    "beta2": 0.999
+}
+
+loadNew.hyperParamOptimiser(xTrain, yTrain, xVal, yVal, hyperParams, "Adam")

@@ -159,25 +159,6 @@ class Loss_CategoricalCrossEntropy(Loss):
         self.dinputs = -yTrue / dvalues
         self.dinputs = self.dinputs / samples
 
-class Activation_Softmax_Loss_CategoricalCrossEntropy():
-    def __init__(self):
-        self.activation = Activation_Softmax()
-        self.loss = Loss_CategoricalCrossEntropy()
-
-    def forward(self, inputs, yTrue):
-        self.activation.forward(inputs)
-        self.output = self.activation.output
-        return self.loss.calculate(self.output, yTrue)
-    
-    def backward(self, dvalues, yTrue):
-        samples = len(dvalues)
-        #if it is a one hot vector, turn it into a sparse vector
-        if len(yTrue.shape) == 2:
-            yTrue = np.argmax(yTrue, axis=1)
-        self.dinputs = dvalues.copy()
-        self.dinputs[range(samples), yTrue] -= 1
-        self.dinputs = self.dinputs / samples
-
 class Optimiser_SGD():
     def __init__(self, learningRate=1.0, decay=0., momentum=0.):
         self.learningRate = learningRate
@@ -260,7 +241,6 @@ class Model():
         self.activations = []
         self.lossFunc = None
         self.optimiser = None
-        self.sizeOptimised = False
         self.lossFuncType = ""
 
     def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0, weights=None, biases=None):
@@ -417,14 +397,12 @@ class Model():
         self.activations = []
         self.addLayer(inputNo, 64, activation=hiddenActivation)
         self.addLayer(64, outputNo, activation=outputActivation)
-        #depthExhausted = False
-        #widthExhausted = False
         lastAction = None
 
         previousValLoss = 5
         previousLoss = 5
         while True:
-            for epoch in range(25):
+            for epoch in range(50):
                 loss, acc = self.cycle(x,y)
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
@@ -434,17 +412,12 @@ class Model():
 
             deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
 
-            #if lastAction == "addLayer" and deltaLoss < 0.01:
-            #    depthExhausted = True
-            #if lastAction == "widen" and deltaLoss < 0.01:
-            #    widthExhausted = True
-
             if deltaValLoss < 0.01 and lastAction == "addDropOut":
                 #even a dropout layer doesnt help anymore, optimisation complete
                 print("Size optimsation complete")
                 break
 
-            elif (deltaValLoss < 0.01 and deltaLoss > 0.01):
+            elif (deltaValLoss < 0.1 and deltaLoss > 0.1):
                 #instead of optimisation complete, this is overfitting - add a dropout layer
                 self.layers.pop()
                 self.activations.pop()
@@ -453,9 +426,7 @@ class Model():
                 self.addLayer(prevSize, outputNo, activation="Softmax")
                 lastAction = "addDropOut"
 
-            elif deltaLoss < 0.01:
-                #widthExhausted = True
-                #if not depthExhausted:
+            elif deltaLoss < 0.1:
                 #adding new layer could help
                 self.layers.pop() # remove the last layer first to avoid neuron number mismatch
                 self.activations.pop()
@@ -465,7 +436,6 @@ class Model():
 
             else:
                 #adding size could help - we only ever modify the penultimate layer
-                #widthExhausted = False
                 self.layers.pop()
                 self.activations.pop()
                 prevSize = self.layers[-1].neuronNo
@@ -486,17 +456,56 @@ class Model():
             previousValLoss = valLoss
         self.sizeOptimised = True
 
-    def hyperParamOptimiser(self): #to be ran AFTER size optimiser
-        if not self.sizeOptimised:
-            raise Exception("Please run the sizeOptimise function first")
-        #TODO
+    def hyperParamOptimiser(self, x, y, xVal, yVal, paramDict, optimiser): #to be ran AFTER size optimiser
+
+        self.setOptimiser(optimiser=optimiser, **paramDict)
+        previousLoss = 5
+        previousValLoss = 5
         
-    def genericParamOptimiser(self, parameter, x, y, xVal, yVal, optimiser="Adam"):
-        while True:
-            self.setOptimiser(optimiser, )
-            for epoch in range(30):
-                pass 
-            #TODO
+        for param, value in paramDict.items():
+            direction = []
+            sens = 1
+            while sens <= 3:
+                for epoch in range(50):
+                    loss, acc = self.cycle(x,y)
+                    print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
+
+                valLoss, valAcc = self.cycle(xVal, yVal)
+                print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
+                deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
+                
+                if len(direction) == 0:#first run - take a random direction - up bcs y not
+                    newDir = 1
+                    paramDict[param] = self.updateHyperParam(param, value, newDir, sens)       
+                else:
+                    if abs(deltaValLoss) < 0.1:
+                        #at this point its good enough
+                        print(f"{param} optimised")
+                    elif valLoss < previousValLoss:
+                        #then keep going in the same direction
+                        newDir = direction[-1]
+                        paramDict[param] = self.updateHyperParam(param, value, newDir, sens)
+                    else: 
+                        newDir = 0 if direction[-1] == 1 else 1
+                        #change direction - but use smaller widths - unless its the second turn. It is possible up was the wrong direction
+                        if len(direction) == 1:
+                            paramDict[param] = self.updateHyperParam(param, value, newDir, 0.5)
+                        else:
+                            sens += 1
+                            paramDict[param] = self.updateHyperParam(param, value, newDir, sens)
+                direction.append(newDir)
+                previousValLoss = valLoss
+
+
+    def updateHyperParam(self, parameter, value, direction, sens):
+        if parameter == "learningRate" or parameter == "decay":
+            value = value * np.power(10, 1/sens) if direction == 1 else value / np.power(10, 1/sens)
+        else:
+            mutable = 1 - value
+            mutable = mutable * np.power(10, 1/sens) if direction == 1 else mutable / np.power(10, 1/sens)
+            value = 1-mutable
+        return value
+
 
     def saveModel(self):
         parameters = []
