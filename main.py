@@ -1,6 +1,7 @@
 import loader
 import cupy as np
 import model
+import time
 
 #loading training and testing data
 def loadData():
@@ -24,20 +25,21 @@ def dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw):
     print(f"Shape: {xTrain.shape}")
     return (xTrain, yTrain), (xTest, yTest)
 
+start = time.time()
 (xTrainRaw, yTrainRaw), (xTestRaw, yTestRaw) = loadData()
 (xTrain, yTrain), (xTest, yTest) = dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw)
 
-#classifier = model.Model()
-#classifier.setLossFunc()
-#classifier.setOptimiser()
+classifier = model.Model()
+classifier.setLossFunc()
+classifier.setOptimiser()
 
 xVal = xTrain[50000:]
 yVal = yTrain[50000:]
 xTrain = xTrain[:50000]
 yTrain = yTrain[:50000]
 
-#classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
-#classifier.saveModel()
+classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
+classifier.saveModel()
 
 loadNew = model.Model()
 loadNew.loadModel("NNParameters.pkl", "NNMetaData.pkl")
@@ -54,3 +56,8 @@ hyperParams = {
 }
 
 loadNew.hyperParamOptimiser(xTrain, yTrain, xVal, yVal, hyperParams, "Adam")
+
+
+loss, acc = loadNew.forwardPass(xTest, yTest)
+print(f"Test: Loss - {loss}, Acc - {acc}")
+print(f"Total Time: {time.time() - start}")

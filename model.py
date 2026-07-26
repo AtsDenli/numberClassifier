@@ -376,7 +376,7 @@ class Model():
         np.random.shuffle(indices)
         x = x[indices]
         y = y[indices]
-        #im arbitrarily setting batch size to 2000
+        
         x = np.split(x, 1000)
         y = np.split(y, 1000)
         losses = []
@@ -407,7 +407,7 @@ class Model():
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
             deltaLoss = ((previousLoss - loss) / previousLoss) * 100
-            valLoss, valAcc = self.cycle(xVal, yVal)
+            valLoss, valAcc = self.forwardPass(xVal, yVal)
             print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
 
             deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
@@ -422,7 +422,7 @@ class Model():
                 self.layers.pop()
                 self.activations.pop()
                 prevSize = self.layers[-1].neuronNo
-                self.addLayer(prevSize, prevSize, layerType="dropout", rate=0.15)
+                self.addLayer(prevSize, prevSize, layerType="dropout", rate=0.45)
                 self.addLayer(prevSize, outputNo, activation="Softmax")
                 lastAction = "addDropOut"
 
@@ -430,7 +430,7 @@ class Model():
                 #adding new layer could help
                 self.layers.pop() # remove the last layer first to avoid neuron number mismatch
                 self.activations.pop()
-                self.addLayer(self.layers[-1].neuronNo, 64, activation=hiddenActivation)
+                self.addLayer(self.layers[-1].neuronNo, 64, activation=hiddenActivation, weightRegL2=5e-4, biasRegL2=5e-4)
                 self.addLayer(self.layers[-1].neuronNo, outputNo, activation=outputActivation)
                 lastAction = "addLayer"
 
@@ -442,7 +442,7 @@ class Model():
                 self.layers.pop() #remove the last 2, since we arent trying to add a layer, just increase an existing ones size
                 self.activations.pop()
                 newInputSize = self.layers[-1].neuronNo if self.layers else inputNo
-                self.addLayer(newInputSize, prevSize*2, activation=hiddenActivation)
+                self.addLayer(newInputSize, prevSize*2, activation=hiddenActivation, weightRegL2=5e-4, biasRegL2=5e-4)
                 self.addLayer(self.layers[-1].neuronNo, outputNo, activation=outputActivation)
                 lastAction = "widen"
                 
@@ -466,11 +466,9 @@ class Model():
             direction = []
             sens = 1
             while sens <= 3:
-                for epoch in range(50):
-                    loss, acc = self.cycle(x,y)
-                    print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
+                loss, acc = self.cycle(x,y)
 
-                valLoss, valAcc = self.cycle(xVal, yVal)
+                valLoss, valAcc = self.forwardPass(xVal, yVal)
                 print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
                 deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
                 
@@ -481,6 +479,7 @@ class Model():
                     if abs(deltaValLoss) < 0.1:
                         #at this point its good enough
                         print(f"{param} optimised")
+                        break
                     elif valLoss < previousValLoss:
                         #then keep going in the same direction
                         newDir = direction[-1]
@@ -554,7 +553,7 @@ class Model():
                 else:
                     weights = parameters[j][1]
                     biases = parameters[j][0]
-                    self.addLayer(len(weights), len(biases), layerType=layerType, activation=activationType, weights=weights, biases=biases)
+                    self.addLayer(len(weights), len(biases), layerType=layerType, activation=activationType, weights=weights, biases=biases, weightRegL2=5e-4, biasRegL2=5e-4)
                     j += 1
                 i += 1
         self.setLossFunc(layerList[-1][1])
