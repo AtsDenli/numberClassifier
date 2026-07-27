@@ -25,10 +25,10 @@ def dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw):
     print(f"Shape: {xTrain.shape}")
     return (xTrain, yTrain), (xTest, yTest)
 
-start = time.time()
 (xTrainRaw, yTrainRaw), (xTestRaw, yTestRaw) = loadData()
 (xTrain, yTrain), (xTest, yTest) = dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw)
 
+start = time.time()
 classifier = model.Model()
 classifier.setLossFunc()
 classifier.setOptimiser()
@@ -39,14 +39,8 @@ xTrain = xTrain[:50000]
 yTrain = yTrain[:50000]
 
 classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
-classifier.saveModel()
 
-loadNew = model.Model()
-loadNew.loadModel("NNParameters.pkl", "NNMetaData.pkl")
-loss, acc = loadNew.cycle(xTrain, yTrain)
-print(f"{loss}, {acc}")
-print("Successful load")
-
+#default hyper parameters for Adam optimiser
 hyperParams = {
     "learningRate": 0.001, 
     "decay": 0.0,
@@ -55,9 +49,14 @@ hyperParams = {
     "beta2": 0.999
 }
 
-loadNew.hyperParamOptimiser(xTrain, yTrain, xVal, yVal, hyperParams, "Adam")
+classifier.hyperParamOptimiser(xTrain, yTrain, xVal, yVal, hyperParams, "Adam")
 
+print("Main training cycle")
+for epoch in range (500):
+    loss, acc = classifier.cycle(xTrain, yTrain)
+    if epoch % 5 == 0:
+        print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
-loss, acc = loadNew.forwardPass(xTest, yTest)
+loss, acc = classifier.forwardPass(xTest, yTest)
 print(f"Test: Loss - {loss}, Acc - {acc}")
 print(f"Total Time: {time.time() - start}")

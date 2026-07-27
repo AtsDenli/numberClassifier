@@ -1,16 +1,11 @@
 import cupy as np
 import pickle as pkl
 
-#Code is close (there are some small differences since I had to make some additions) to the book
-#Neural Networks from Scratch in Python by nnfs 
-#which is basically the foundation of all of my knowledge about neural networks
-
 class Layer_Dense:
     def __init__(self, inputNo, neuronNo, weightRegL1=0, weightRegL2=5e-4, biasRegL1=0, biasRegL2=5e-4):
         self.inputNo = inputNo
         self.neuronNo = neuronNo
         self.weights = 0.01 * np.random.randn(inputNo, neuronNo)
-        #the reason that there is an extra bracket here to specify the shape but not in the rpevious line is that zeros() takes other values in as a parameters. If you did it the other way, 1 would be the shape and neuronNo would be the dataType
         self.biases = np.zeros((1, neuronNo))
         self.weightRegL1 = weightRegL1
         self.weightRegL2 = weightRegL2
@@ -20,14 +15,12 @@ class Layer_Dense:
 
     def forward(self, inputs):
         self.inputs = inputs
-        #the reason we dont just do * here instead of np.dot is because we need to be able to apply this to batches
         self.output = np.dot(inputs, self.weights) + self.biases
 
     def backward(self, dvalues):
         #dvalues are the gradients w.r.t inputs from the next layer
         self.dweights = np.dot(self.inputs.T, dvalues)
         self.dbiases = np.sum(dvalues, axis=0, keepdims=True)
-        #now we found the gradients of the weights and biases and the inputs that will be passed to the previous layer
 
         if self.weightRegL1 > 0:
             dL1 = np.ones_like(self.weights)
@@ -63,7 +56,6 @@ class Layer_Dropout():
         self.output = inputs * self.binaryMask
 
     def backward(self, dvalues):
-        #if its 0, the derivativve isdd also 0. else its 1, since the dropout layer is either an active heuron or not, so the values it passes back is 1,
         self.dinputs = dvalues * self.binaryMask
 
 class Activation_ReLU():
@@ -77,7 +69,6 @@ class Activation_ReLU():
     def backward(self, dvalues):
         self.dinputs = dvalues.copy()
         self.dinputs[self.inputs <= 0] = 0
-        #self.inputs and not dinputs here since we want to know how the inputs to the 
 
 class Activation_Softmax():
     def __init__(self):
@@ -136,7 +127,6 @@ class Loss_CategoricalCrossEntropy(Loss):
     def forward(self, yPred, yTrue):
         sampleSize = len(yPred)
         yPredClipped = np.clip(yPred, 1e-7, 1-(1e-7)) # clips to avoid divide by 0 errors and to avoid dragging the mean to a value
-        # Probabilities for target values -
         # only if categorical labels
         if len(yTrue.shape) == 1:
             correct_confidences = yPredClipped[range(sampleSize), yTrue]
@@ -152,7 +142,6 @@ class Loss_CategoricalCrossEntropy(Loss):
     def backward(self, dvalues, yTrue):
         samples = len(dvalues)
         labels = len(dvalues[0])
-        #sparse values is when we just have 1 vector telling us the index of each correct result. We want to turn it into a one hot vector
         if len(yTrue.shape) == 1:
             yTrue = np.eye(labels)[yTrue]
 
@@ -188,8 +177,6 @@ class Optimiser_SGD():
         else:
             layer.weights += -layer.dweights * self.learningRate
             layer.biases += -layer.dbiases * self.learningRate
-
-      
 
     def post_update(self):
         self.iterations += 1
@@ -402,22 +389,22 @@ class Model():
         previousValLoss = 5
         previousLoss = 5
         while True:
-            for epoch in range(50):
+            for epoch in range(30):
                 loss, acc = self.cycle(x,y)
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
-            deltaLoss = ((previousLoss - loss) / previousLoss) * 100
+            deltaLoss = previousLoss - loss
             valLoss, valAcc = self.forwardPass(xVal, yVal)
             print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
 
-            deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
+            deltaValLoss = previousValLoss - valLoss
 
             if deltaValLoss < 0.01 and lastAction == "addDropOut":
                 #even a dropout layer doesnt help anymore, optimisation complete
                 print("Size optimsation complete")
                 break
 
-            elif (deltaValLoss < 0.1 and deltaLoss > 0.1):
+            elif (deltaValLoss < 0.01 and loss < valLoss):
                 #instead of optimisation complete, this is overfitting - add a dropout layer
                 self.layers.pop()
                 self.activations.pop()
@@ -426,7 +413,7 @@ class Model():
                 self.addLayer(prevSize, outputNo, activation="Softmax")
                 lastAction = "addDropOut"
 
-            elif deltaLoss < 0.1:
+            elif deltaLoss < 0.01:
                 #adding new layer could help
                 self.layers.pop() # remove the last layer first to avoid neuron number mismatch
                 self.activations.pop()
@@ -459,24 +446,24 @@ class Model():
     def hyperParamOptimiser(self, x, y, xVal, yVal, paramDict, optimiser): #to be ran AFTER size optimiser
 
         self.setOptimiser(optimiser=optimiser, **paramDict)
-        previousLoss = 5
         previousValLoss = 5
         
         for param, value in paramDict.items():
             direction = []
             sens = 1
             while sens <= 3:
-                loss, acc = self.cycle(x,y)
+                for i in range(3):
+                    loss, acc = self.cycle(x,y)
 
                 valLoss, valAcc = self.forwardPass(xVal, yVal)
                 print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
-                deltaValLoss = ((previousValLoss - valLoss) / previousValLoss) * 100
-                
-                if len(direction) == 0:#first run - take a random direction - up bcs y not
-                    newDir = 1
+                deltaValLoss = previousValLoss - valLoss
+
+                if len(direction) == 0:#first run - go smaller
+                    newDir = -1
                     paramDict[param] = self.updateHyperParam(param, value, newDir, sens)       
                 else:
-                    if abs(deltaValLoss) < 0.1:
+                    if abs(deltaValLoss) < 0.01:
                         #at this point its good enough
                         print(f"{param} optimised")
                         break
@@ -486,7 +473,7 @@ class Model():
                         paramDict[param] = self.updateHyperParam(param, value, newDir, sens)
                     else: 
                         newDir = 0 if direction[-1] == 1 else 1
-                        #change direction - but use smaller widths - unless its the second turn. It is possible up was the wrong direction
+                        #change direction - but use smaller widths - unless its the second turn. It is possible down was the wrong direction
                         if len(direction) == 1:
                             paramDict[param] = self.updateHyperParam(param, value, newDir, 0.5)
                         else:

@@ -14,7 +14,7 @@ This is a neural network, built completely from scratch using cupy (numpy for GP
 * Model save/load (pickle-based)
 
 ## Final Accuracy - 97.36%
-Total Time taken ()
+Varies based on exact values used on auto optimisers and other parameters. This was the highest accuracy I aachieved - you may get a lower result or potentially s lightly higher one
 
 ## Requirements
 * Python 3+
@@ -35,6 +35,9 @@ Another limitation is that layers dont have different Regularisation values, as 
 function. They are hardcoded at 5e-4.
 
 Similarly, all dropout functions have a rate of 0.45.
+
+The Optimisers are also bounded to a large change in Validation losses as their stop conditions, e.g. a change of 0.01. This was in the spirrit of saving compute.
+If you have stronger hardware than I do, smaller values can be used here to get even more optimal values.
 
 ## Credits
 The mathematical section of this code was built following the book "Neural Networks from Scratch" by Harrison Kinsley and Daniel Kukieła.
