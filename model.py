@@ -2,6 +2,7 @@ import cupy as np
 import pickle as pkl
 
 class Layer_Dense:
+    #initialising a Dense Layer
     def __init__(self, inputNo, neuronNo, weightRegL1=0, weightRegL2=5e-4, biasRegL1=0, biasRegL2=5e-4):
         self.inputNo = inputNo
         self.neuronNo = neuronNo
@@ -13,10 +14,12 @@ class Layer_Dense:
         self.biasRegL2 = biasRegL2 
         self.type = "dense"
 
+    #forward pass
     def forward(self, inputs):
         self.inputs = inputs
         self.output = np.dot(inputs, self.weights) + self.biases
 
+    #backward pass
     def backward(self, dvalues):
         #dvalues are the gradients w.r.t inputs from the next layer
         self.dweights = np.dot(self.inputs.T, dvalues)
@@ -149,6 +152,7 @@ class Loss_CategoricalCrossEntropy(Loss):
         self.dinputs = self.dinputs / samples
 
 class Optimiser_SGD():
+    #initialises the parameters
     def __init__(self, learningRate=1.0, decay=0., momentum=0.):
         self.learningRate = learningRate
         self.currentLearningRate = learningRate
@@ -156,10 +160,12 @@ class Optimiser_SGD():
         self.iterations = 0
         self.momentum = momentum
 
+    #updating hyperparameters before updating parameters
     def pre_update(self):
         if self.decay:
             self.currentLearningRate = self.learningRate * (1. / (1. + self.decay * self.iterations))
-    
+
+    #updating parameters
     def update_parameters(self, layer):
         if self.momentum:
             if not hasattr(layer, "weight_momentums"):
@@ -178,6 +184,7 @@ class Optimiser_SGD():
             layer.weights += -layer.dweights * self.learningRate
             layer.biases += -layer.dbiases * self.learningRate
 
+    #increment iterations to facilitate updating hyperparameters
     def post_update(self):
         self.iterations += 1
 
@@ -223,6 +230,7 @@ class Optimiser_Adam():
 
 #From here on down, is my code entirely
 class Model():
+    #initialising model variables
     def __init__(self):
         self.layers = []
         self.activations = []
@@ -231,22 +239,26 @@ class Model():
         self.lossFuncType = ""
 
     def addLayer(self, inputNo, neuronNo, loc=-1, layerType="dense", activation="ReLU", weightRegL1=0, weightRegL2=0, biasRegL1=0, biasRegL2=0, rate=0, weights=None, biases=None):
-        if weights is None: #creating a new layer
+        if weights is None: #creating a new layer depending on specified type (dense layer by default)
             if layerType == "dense":
                 newLayer = Layer_Dense(inputNo, neuronNo, weightRegL1, weightRegL2, biasRegL1, biasRegL2)
             elif layerType == "dropout":
                 newLayer = Layer_Dropout(rate,inputNo)
             else:
                 raise ValueError("Unimplemented type of layer requested")
-            
+
+            #if the previous layer's output size isnt the same as the provided number of inputs, there is a mistake - only supports fully connected models
             if len(self.layers) > 0:
                 if self.layers[-1].neuronNo != inputNo:
                     raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
-            
+
+            #the algorithms used for optimisation only add to the end, but the user has access to this functionality to add a layer wherever they like
             if loc == -1:
                 self.layers.append(newLayer)
             else:
                 self.layers.insert(loc, newLayer)
+                if self.layers[-1].neuronNo != inputNo:
+                    raise ValueError(f"Layer size mismatch: {self.layers[-1].neuronNo} to {inputNo}")
 
             if layerType != "dropout": #if its a dropout layer, there is no activation function
                 if activation == "ReLU":
@@ -262,7 +274,7 @@ class Model():
             else:
                 self.activations.append(None)
 
-        else: #adding a layer that is being loaded - only dense layers possible
+        else: #adding a layer that is being loaded - only dense layers possible for now
             newLayer = Layer_Dense(inputNo, neuronNo)
             newLayer.weights = weights
             newLayer.biases = biases
@@ -283,9 +295,9 @@ class Model():
             self.lossFuncType = func
         else:
             raise ValueError("Unimplemented Loss function requested")
-        #if I implement more loss functions, they can be added here
 
     def setOptimiser(self, optimiser="Adam", learningRate=None, momentum=None, decay=None, epsilon=None, beta1=None, beta2=None):
+        #sets optimisers using given hyperparameters. If a certain hyperparameters is not given, the default values in the class implementing that optimiser is used
         if optimiser == "SGD":
             kwargs = {}
             if learningRate != None:
@@ -311,6 +323,7 @@ class Model():
             self.optimiser = Optimiser_Adam(**kwargs)
 
     def forwardPass(self, inputBatch, trueBatch):
+        #implements one forward pass on a batch of data
         if self.lossFunc == None:
             raise AttributeError("No loss function set")
         
@@ -329,6 +342,7 @@ class Model():
                 self.activations[i].forward(self.layers[i].output)
                 self.reguLoss += self.lossFunc.regularisationLoss(self.layers[i])
 
+        #calculate losses and accuracy
         self.dataloss = self.lossFunc.calculate(self.activations[-1].output, trueBatch)
         self.totalLoss = self.dataloss + self.reguLoss
         predictions = np.argmax(self.activations[-1].output, axis=1)
@@ -336,6 +350,7 @@ class Model():
         return self.totalLoss, self.accuracy
     
     def backwardPass(self, trueBatch):
+        #backward pass and calculate gradients
         self.lossFunc.backward(self.activations[-1].output, trueBatch)
         self.activations[-1].backward(self.lossFunc.dinputs)
         self.layers[-1].backward(self.activations[-1].dinputs)
@@ -347,18 +362,20 @@ class Model():
             else:
                 self.layers[i].backward(self.layers[i+1].dinputs)
 
+        #update parameters
         self.optimiser.pre_update()
         for layer in self.layers:
             if hasattr(layer, "weights"): #if its a dropout layer, it shouldnt be optimised
                 self.optimiser.update_parameters(layer)
         self.optimiser.post_update() 
 
-    def cycle(self, x, y): #essentially one epoch of training/validation/testing
+    def cycle(self, x, y): 
+        #essentially one epoch of training/validation/testing
         #assuming layers exist, loss func is set and optimiser is set
         if self.layers == [] or self.activations == [] or self.lossFunc == None or self.optimiser == None:
             raise ValueError("Conditions not met to be able to run training.\nCheck if layers, activations, loss func and optimiser is added")
         
-        #shuffe since this function will be running multiple times in a loop
+        #shuffle since this function will be running multiple times in a loop
         indices = np.arange(len(x))
         np.random.shuffle(indices)
         x = x[indices]
@@ -368,6 +385,8 @@ class Model():
         y = np.split(y, 1000)
         losses = []
         accs = []
+
+        #run backward and forward pass once for each batch
         for i in range(len(x)):
             lossTmp, accTmp = self.forwardPass(x[i], y[i])
             losses.append(lossTmp)
@@ -380,16 +399,25 @@ class Model():
     def sizeOptimiser(self, inputNo, outputNo, x, y, xVal, yVal, hiddenActivation="ReLU", outputActivation="Softmax"):
         #first create the initial input, output and singular hidden layer
         #reinitialise the layers and activations in case they were already populated
+        print("Optimising size")
         self.layers = []
         self.activations = []
         self.addLayer(inputNo, 64, activation=hiddenActivation)
         self.addLayer(64, outputNo, activation=outputActivation)
         lastAction = None
 
+        #print shape
+        print(inputNo, end=", ")
+        for layer in self.layers:
+            print(layer.neuronNo, end=", ")
+        print()
+
         previousValLoss = 5
         previousLoss = 5
+        willBreak = False
         while True:
-            for epoch in range(30):
+            #calculate loss and validation loss
+            for epoch in range(10):
                 loss, acc = self.cycle(x,y)
                 print(f"Epoch: {epoch}, loss: {loss}, acc: {acc}")
 
@@ -397,14 +425,21 @@ class Model():
             valLoss, valAcc = self.forwardPass(xVal, yVal)
             print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
 
-            deltaValLoss = previousValLoss - valLoss
-
-            if deltaValLoss < 0.01 and lastAction == "addDropOut":
-                #even a dropout layer doesnt help anymore, optimisation complete
-                print("Size optimsation complete")
+            if willBreak:
+                print("Size optimisation complete")
                 break
 
-            elif (deltaValLoss < 0.01 and loss < valLoss):
+            deltaValLoss = previousValLoss - valLoss
+
+            if deltaValLoss < 0.1 and lastAction == "addDropOut":
+                #even a dropout layer doesnt help anymore, optimisation complete
+                #if we are here, the new addition to the size either made things worse or so marginably better that we have identified it negligible
+                #Therefore, we should undo our last action - remove the last dropout layer and retrain
+                self.layers.pop(len(self.layers)-2)
+                self.activations.pop(len(self.activations)-2)
+                willBreak = True
+
+            elif (deltaValLoss < 0.1 and loss < valLoss):
                 #instead of optimisation complete, this is overfitting - add a dropout layer
                 self.layers.pop()
                 self.activations.pop()
@@ -413,7 +448,7 @@ class Model():
                 self.addLayer(prevSize, outputNo, activation="Softmax")
                 lastAction = "addDropOut"
 
-            elif deltaLoss < 0.01:
+            elif deltaLoss < 0.1:
                 #adding new layer could help
                 self.layers.pop() # remove the last layer first to avoid neuron number mismatch
                 self.activations.pop()
@@ -442,16 +477,22 @@ class Model():
             previousLoss = loss
             previousValLoss = valLoss
         self.sizeOptimised = True
+        #print shape
+        print(inputNo, end=", ")
+        for layer in self.layers:
+            print(layer.neuronNo, end=", ")
+        print()
 
     def hyperParamOptimiser(self, x, y, xVal, yVal, paramDict, optimiser): #to be ran AFTER size optimiser
 
+        #reinitialiise the optimiser in case the user input new starting values
         self.setOptimiser(optimiser=optimiser, **paramDict)
         previousValLoss = 5
         
         for param, value in paramDict.items():
-            direction = []
-            sens = 1
-            while sens <= 3:
+            direction = [] #keeps track of whether we made the values bigger or smaller so we can make the correct decisions on how to modify it next
+            sens = 1 #sensitivity of the adjustment - the higher this value, the smaller the change to the hyperparameter
+            while sens <= 3: #picked 3 arbitrarily due to time and hardware limitations
                 for i in range(3):
                     loss, acc = self.cycle(x,y)
 
@@ -459,11 +500,11 @@ class Model():
                 print(f"Validation Loss: {valLoss}, Validation Accuracy: {valAcc}")
                 deltaValLoss = previousValLoss - valLoss
 
-                if len(direction) == 0:#first run - go smaller
+                if len(direction) == 0: #first run - go smaller (I decided to go smaller because this is usually the right direction - we handle if this was incorrect later)
                     newDir = -1
                     paramDict[param] = self.updateHyperParam(param, value, newDir, sens)       
                 else:
-                    if abs(deltaValLoss) < 0.01:
+                    if abs(deltaValLoss) < 0.1:
                         #at this point its good enough
                         print(f"{param} optimised")
                         break
@@ -482,7 +523,7 @@ class Model():
                 direction.append(newDir)
                 previousValLoss = valLoss
 
-
+    #helper function to hyperparameter optimiser - handles actually changing the values of the hyperparameters
     def updateHyperParam(self, parameter, value, direction, sens):
         if parameter == "learningRate" or parameter == "decay":
             value = value * np.power(10, 1/sens) if direction == 1 else value / np.power(10, 1/sens)
@@ -494,6 +535,7 @@ class Model():
 
 
     def saveModel(self):
+        #Uses pickle to save the model
         parameters = []
         for i in range(len(self.layers)):
             if self.activations[i] != None: #if its not a dropout layer
@@ -526,6 +568,7 @@ class Model():
             pkl.dump((layerList, hyperParams), file)
 
     def loadModel(self, paramFile, metaFile):
+        #Uses pickle to load the model
         with open(metaFile, "rb") as file: 
             layerList, hyperParams = pkl.load(file)
         with open(paramFile, "rb") as file:

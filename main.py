@@ -25,19 +25,23 @@ def dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw):
     print(f"Shape: {xTrain.shape}")
     return (xTrain, yTrain), (xTest, yTest)
 
+#load and clean data
 (xTrainRaw, yTrainRaw), (xTestRaw, yTestRaw) = loadData()
 (xTrain, yTrain), (xTest, yTest) = dataCleaning(xTrainRaw, yTrainRaw, xTestRaw, yTestRaw)
 
+#initialise model
 start = time.time()
 classifier = model.Model()
 classifier.setLossFunc()
 classifier.setOptimiser()
 
+#make the validation and training dataset
 xVal = xTrain[50000:]
 yVal = yTrain[50000:]
 xTrain = xTrain[:50000]
 yTrain = yTrain[:50000]
 
+#optimise the size
 classifier.sizeOptimiser(784, 10, xTrain, yTrain, xVal, yVal)
 
 #default hyper parameters for Adam optimiser
@@ -49,7 +53,12 @@ hyperParams = {
     "beta2": 0.999
 }
 
+#optimise hyperparameter
 classifier.hyperParamOptimiser(xTrain, yTrain, xVal, yVal, hyperParams, "Adam")
+
+#optimising these separately means that to reach a true optimimum they will have to iterate this several times and cross validate
+#since a different sized model will have different optimal hyperparameters and vice versa
+#This was not done here due to time and hardware constraints
 
 print("Main training cycle")
 for epoch in range (500):
