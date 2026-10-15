@@ -14,7 +14,7 @@ This is a neural network, built completely from scratch using cupy (numpy for GP
 * Model save/load (pickle-based)
 
 ## Final Accuracy - 97.36%
-Varies based on exact values used on auto optimisers and other parameters. This was the highest accuracy I aachieved - you may get a lower result or potentially s lightly higher one
+Varies based on exact values used on auto optimisers and other parameters. This was the highest accuracy I achieved - you may get a lower result or potentially slightly higher one
 
 ## Requirements
 * Python 3+
@@ -24,7 +24,7 @@ Varies based on exact values used on auto optimisers and other parameters. This 
 ## Usage
 "loader.py" is specifically for the MNNIST Digits dataset. If using the same dataset, put the data files in the same directory and input the correct file names into
 the appropriate functions in "main.py"
-If you have wish to use it on a separate dataset, you will need your own script for loading which presents the same output structure as "loader.py"
+If you wish to use it on a separate dataset, you will need your own script for loading which presents the same output structure as "loader.py"
 Other tweaks can be made - especially to the hardcoded values inside the automatic optimisers, depending on the compute/accuracy tradeoff
 
 ## Limitations
@@ -36,8 +36,8 @@ function. They are hardcoded at 5e-4.
 
 Similarly, all dropout functions have a rate of 0.45.
 
-The Optimisers are also bounded to a large change in Validation losses as their stop conditions, e.g. a change of 0.01. This was in the spirrit of saving compute.
-If you have stronger hardware than I do, smaller values can be used here to get even more optimal values.
+The Optimisers are also bounded to a large change in Validation losses as their stop conditions, e.g. a change of 0.01. This was in the spirit of saving compute.
+If you have stronger hardware than I do, smaller values can be used here to get even more optimised models.
 
 ## Credits
 The mathematical section of this code was built following the book "Neural Networks from Scratch" by Harrison Kinsley and Daniel Kukieła.
