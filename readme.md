@@ -1,7 +1,7 @@
 # Neural network
 ## Tested and trained on MNIST Digits dataset 
 
-This is a neural network, built completely from scratch using cupy (numpy for GPUs) to solidify my understanding of backprop, optimisers and other fundemental Nerual Network concepts
+This is a neural network, built completely from scratch using cupy (numpy for GPUs) to solidify my understanding of backprop, optimisers and other fundemental Neural Network concepts
 
 ## Features:
 * Dense layers with L1/L2 regularization
@@ -25,7 +25,8 @@ Varies based on exact values used on auto optimisers and other parameters. This 
 "loader.py" is specifically for the MNNIST Digits dataset. If using the same dataset, put the data files in the same directory and input the correct file names into
 the appropriate functions in "main.py"
 If you wish to use it on a separate dataset, you will need your own script for loading which presents the same output structure as "loader.py"
-Other tweaks can be made - especially to the hardcoded values inside the automatic optimisers, depending on the compute/accuracy tradeoff
+Other tweaks can be made - especially to the hardcoded values inside the automatic optimisers, depending on the compute/accuracy tradeoff.
+Otherwise, put the dataset, your dataloader, "main.py" and "model.py" in the same directory and run "main.py"
 
 ## Limitations
 Main limitations is the lack of variety - only Categorical Cross Entropy as loss function, Static Gradient Descent and Adam optimiser as Optimisers and only fully-
